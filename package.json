@@ -15,7 +15,7 @@
     "test-reporting",
     "flaky-tests"
   ],
-  "homepage": "https://github.com/Qualflare/qualflare-appium#readme",
+  "homepage": "https://qualflare.com/appium-test-reporting/",
   "bugs": {
     "url": "https://github.com/Qualflare/qualflare-appium/issues"
   },
