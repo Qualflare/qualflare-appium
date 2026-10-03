@@ -1,6 +1,6 @@
 {
   "name": "@qualflare/appium",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Qualflare reporter for Appium suites run through WebdriverIO — iOS and Android results with device capabilities, per-attempt retries, flakiness and the screenshots Appium takes, labelled as Appium.",
   "keywords": [
     "qualflare",
@@ -60,7 +60,7 @@
     "provenance": true
   },
   "dependencies": {
-    "@qualflare/webdriverio": "^0.1.0"
+    "@qualflare/webdriverio": "^0.2.0"
   },
   "peerDependencies": {
     "webdriverio": "^8.0.0 || ^9.0.0"

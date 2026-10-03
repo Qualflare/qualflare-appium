@@ -33,7 +33,7 @@ the same results under the category `generic`.
 
 ## Setup
 
-Add the reporter **and** its service to `wdio.conf`:
+Add the reporter to `wdio.conf`, next to the Appium service that starts the server:
 
 ```js
 export const config = {
@@ -44,7 +44,7 @@ export const config = {
     'appium:deviceName': 'iPhone 17 Pro',
     'appium:app': './build/MyApp.app',
   }],
-  services: ['appium', '@qualflare/appium/service'],
+  services: ['appium'],
   reporters: ['spec', ['@qualflare/appium', { environment: 'staging' }]],
 };
 ```
@@ -54,10 +54,14 @@ npx wdio run wdio.conf.js
 qf <your-project> collect ./qualflare-results
 ```
 
-The service is required, not optional. Each spec file runs in its own worker,
-each worker writes its own report, and `qf collect` merges only the files that
-share one run id. Without the service, the workers can't agree on one, and the
-upload would carry a single spec file's results. See
+Each spec file runs in its own worker and writes its own report, and `qf
+collect` merges the files that share one run id. Every worker derives that id
+from the `wdio run` launcher process, or uses the CI provider's run id, so the
+whole run lands in one launch with no extra setup.
+
+`@qualflare/appium/service` is optional. Add it to `services` if you start
+WebdriverIO programmatically more than once in one Node process, or if you want
+stale reports cleaned up before each run. See
 [`@qualflare/webdriverio`'s Setup](https://github.com/Qualflare/qualflare-webdriverio#setup).
 
 ## What you get

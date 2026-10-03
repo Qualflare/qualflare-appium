@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.0 — 2026-10-03
+
+- Builds on `@qualflare/webdriverio` 0.2.0, so the service is now optional:
+  every worker of one `wdio run` derives the same run id from the launcher
+  process. `services: ['appium']` alone is enough. Add
+  `@qualflare/appium/service` only when you run WebdriverIO programmatically
+  more than once in one Node process, or to clean stale reports.
+- The weekly real-simulator E2E now runs without the service, so a real
+  XCUITest session proves the new default.
+
 ## 0.1.0 — 2026-10-03
 
 Initial release.
