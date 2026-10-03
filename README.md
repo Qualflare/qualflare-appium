@@ -94,6 +94,14 @@ npm test && npm run test:built && npm run test:integration
 SIM_UDID=… SIM_NAME="iPhone 17 Pro" SIM_VERSION=26.0 npm run e2e
 ```
 
+## Test reports
+
+This package reports its own dogfood suite to Qualflare, through itself: the
+reporter under test is the one that produced these runs, uploaded by the
+**published** `qualflare-cli`. Every run is a real Appium session on an iOS simulator.
+
+[![Qualflare](https://api.qualflare.com/p/qualflare-appium/banner.svg)](https://reports.qualflare.com/p/qualflare-appium/launches)
+
 ## License
 
 Apache-2.0
