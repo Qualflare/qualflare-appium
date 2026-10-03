@@ -1,3 +1,7 @@
+// No Qualflare service on purpose: since @qualflare/webdriverio 0.2.0 the
+// workers derive one run id from the launcher, and this run proves that on a
+// real Appium session every week (the verifier asserts one runId).
+//
 // The dogfood run: @qualflare/appium reports on a REAL Appium session -- the
 // XCUITest driver driving mobile Safari on an iOS simulator -- loaded by name
 // from built dist/, exactly as a user configures it. Two spec files, so two
@@ -42,7 +46,6 @@ export const config = {
   // @wdio/appium-service starts the Appium server for the run and stops it after.
   services: [
     ['appium', { command: 'appium', args: { port: 4723 } }],
-    ['@qualflare/appium/service', { resultsDir: '../e2e-results' }],
   ],
   port: 4723,
   reporters: ['spec', ['@qualflare/appium', { resultsDir: '../e2e-results', environment: 'production' }]],
