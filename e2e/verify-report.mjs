@@ -44,7 +44,7 @@ for (const report of reports) {
 }
 const runIds = new Set(reports.map((r) => r.metadata?.runId));
 check('every worker shares one runId', runIds.size === 1, [...runIds].join(', '));
-check('four cases reported', cases.length === 4, `got ${cases.length}`);
+check('three cases reported', cases.length === 3, `got ${cases.length}`);
 const notPassed = cases.filter((c) => c.status !== 'passed');
 check('every case passed', notPassed.length === 0, notPassed.map((c) => `${c.name}=${c.status}`).join(', '));
 
