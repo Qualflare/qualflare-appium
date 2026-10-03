@@ -1,0 +1,139 @@
+name: E2E
+
+# Dogfood on a REAL Appium session: the XCUITest driver drives mobile Safari on
+# an iOS simulator, @qualflare/appium reports it, and the PUBLISHED CLI uploads
+# the result to Qualflare.
+#
+# A real session is the point. Headless Chrome (ci.yml) proves the composition
+# and the label; only a real XCUITest session proves what a mobile run looks
+# like: `platform: ios` although mobile Safari also reports a browser, device
+# capabilities that XCUITest returns unprefixed, and a legacy `platform: MAC`
+# capability on the same session that must never be read.
+#
+# Weekly and on demand, not on every push: macOS runner minutes cost ten times
+# Linux's, and building WebDriverAgent on a cold runner takes minutes.
+#
+# The CLI is deliberately UNPINNED: a CLI release that stops understanding what
+# this reporter emits should turn this red. The suite has NO failing tests by
+# construction; red has to mean a real regression.
+
+on:
+  schedule:
+    - cron: '17 6 * * 1'
+  workflow_dispatch:
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    name: Real iOS simulator session + upload to Qualflare
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+
+      - run: npm ci
+      - name: Build
+        run: npm run build
+
+      - name: Install the XCUITest driver
+        run: npx appium driver install xcuitest
+
+      # Whatever iPhone the runner image has, newest runtime last. Chosen here
+      # rather than hard-coded, because runner images move to new Xcode and iOS
+      # versions on their own schedule and a pinned name would break silently.
+      - name: Pick and boot an iPhone simulator
+        run: |
+          xcodebuild -version
+          read -r SIM_UDID SIM_VERSION SIM_NAME < <(
+            xcrun simctl list devices available -j | jq -r '
+              [ .devices | to_entries[]
+                | select(.key | test("SimRuntime.iOS-"))
+                | (.key | capture("iOS-(?<v>[0-9-]+)$").v | gsub("-"; ".")) as $v
+                | .value[] | select(.name | startswith("iPhone"))
+                | { udid, name, v: $v } ]
+              | sort_by(.v | split(".") | map(tonumber)) | last
+              | "\(.udid) \(.v) \(.name)"')
+          if [ -z "$SIM_UDID" ]; then
+            echo "::error::no iPhone simulator on this runner image"
+            exit 1
+          fi
+          echo "using $SIM_NAME (iOS $SIM_VERSION) $SIM_UDID"
+          xcrun simctl boot "$SIM_UDID" || true
+          xcrun simctl bootstatus "$SIM_UDID" -b
+          {
+            echo "SIM_UDID=$SIM_UDID"
+            echo "SIM_NAME=$SIM_NAME"
+            echo "SIM_VERSION=$SIM_VERSION"
+          } >> "$GITHUB_ENV"
+
+      # continue-on-error with a gate at the end: a red dogfood run is the run
+      # Qualflare most needs to see, so the upload still happens.
+      - name: Run the dogfood suite
+        id: suite
+        continue-on-error: true
+        run: npm run test:e2e
+
+      - name: Verify the report says what the package should make it say
+        id: verify
+        continue-on-error: true
+        run: npm run verify:e2e
+
+      - name: Install the published CLI
+        run: |
+          npm install -g @qualflare/cli
+          qf version
+
+      - name: Record the project's run count before uploading
+        id: runs_before
+        run: echo "count=$(python3 e2e/assert-launch-landed.py qualflare-appium --print)" >> "$GITHUB_OUTPUT"
+
+      # `--force`: stdin is not a TTY. The token goes via the environment, never
+      # argv. No --platform: the reports carry `ios`, derived from the session.
+      - name: Upload to Qualflare
+        id: upload
+        if: hashFiles('e2e-results/*.json') != ''
+        env:
+          QF_TOKEN: ${{ secrets.QF_TOKEN }}
+          QF_BRANCH: ${{ github.ref_name }}
+          QF_COMMIT: ${{ github.sha }}
+        run: |
+          if [ -z "$QF_TOKEN" ]; then
+            echo "::error::QF_TOKEN is not set on this repository."
+            exit 1
+          fi
+          qf login qualflare-appium --force
+          qf qualflare-appium collect ./e2e-results
+
+      - name: Assert the launch reached the project the badge reads
+        if: steps.upload.outcome == 'success'
+        run: python3 e2e/assert-launch-landed.py qualflare-appium --before "${{ steps.runs_before.outputs.count }}"
+
+      - name: Keep the reports and Appium's logs when something went wrong
+        if: steps.suite.outcome != 'success' || steps.verify.outcome != 'success'
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-results
+          path: |
+            e2e-results/
+            e2e/*.log
+          retention-days: 7
+          if-no-files-found: warn
+
+      - name: Fail if the suite or the verifier was red
+        if: steps.suite.outcome != 'success' || steps.verify.outcome != 'success'
+        run: |
+          echo "::error::Dogfood suite=${{ steps.suite.outcome }} verifier=${{ steps.verify.outcome }} — the data was still uploaded so the regression is visible in Qualflare."
+          exit 1
